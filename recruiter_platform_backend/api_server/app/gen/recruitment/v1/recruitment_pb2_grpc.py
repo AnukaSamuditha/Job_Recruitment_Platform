@@ -49,6 +49,11 @@ class RecruitmentDataStub(object):
                 request_serializer=recruitment_dot_v1_dot_recruitment__pb2.ComputeCandidateJobFitRequest.SerializeToString,
                 response_deserializer=recruitment_dot_v1_dot_recruitment__pb2.ComputeCandidateJobFitResponse.FromString,
                 _registered_method=True)
+        self.GetCandidateCvPdf = channel.unary_unary(
+                '/recruitment.v1.RecruitmentData/GetCandidateCvPdf',
+                request_serializer=recruitment_dot_v1_dot_recruitment__pb2.GetCandidateCvPdfRequest.SerializeToString,
+                response_deserializer=recruitment_dot_v1_dot_recruitment__pb2.GetCandidateCvPdfResponse.FromString,
+                _registered_method=True)
 
 
 class RecruitmentDataServicer(object):
@@ -72,6 +77,12 @@ class RecruitmentDataServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetCandidateCvPdf(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RecruitmentDataServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -89,6 +100,11 @@ def add_RecruitmentDataServicer_to_server(servicer, server):
                     servicer.ComputeCandidateJobFit,
                     request_deserializer=recruitment_dot_v1_dot_recruitment__pb2.ComputeCandidateJobFitRequest.FromString,
                     response_serializer=recruitment_dot_v1_dot_recruitment__pb2.ComputeCandidateJobFitResponse.SerializeToString,
+            ),
+            'GetCandidateCvPdf': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCandidateCvPdf,
+                    request_deserializer=recruitment_dot_v1_dot_recruitment__pb2.GetCandidateCvPdfRequest.FromString,
+                    response_serializer=recruitment_dot_v1_dot_recruitment__pb2.GetCandidateCvPdfResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -172,6 +188,33 @@ class RecruitmentData(object):
             '/recruitment.v1.RecruitmentData/ComputeCandidateJobFit',
             recruitment_dot_v1_dot_recruitment__pb2.ComputeCandidateJobFitRequest.SerializeToString,
             recruitment_dot_v1_dot_recruitment__pb2.ComputeCandidateJobFitResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCandidateCvPdf(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/recruitment.v1.RecruitmentData/GetCandidateCvPdf',
+            recruitment_dot_v1_dot_recruitment__pb2.GetCandidateCvPdfRequest.SerializeToString,
+            recruitment_dot_v1_dot_recruitment__pb2.GetCandidateCvPdfResponse.FromString,
             options,
             channel_credentials,
             insecure,

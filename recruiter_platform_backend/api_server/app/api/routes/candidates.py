@@ -25,6 +25,7 @@ from app.api.schemas import (
     CandidateJobFitRead,
     CandidateJobScreeningRead,
 )
+from app.schemas.cv_parser_agent import cv_parser_agent_read_from_stored
 from app.core.config import get_settings
 from app.models.agent_step import AgentStep
 from app.models.candidate import Candidate
@@ -189,6 +190,9 @@ async def get_candidate_detail(
         cv_analysis=cv_analysis,
         job_screening=job_screening,
         job_fit=_job_fit_read(parse_result),
+        cv_parser_agent=cv_parser_agent_read_from_stored(
+            parse_result.get("cv_parser_agent") if parse_result else None
+        ),
     )
 
 

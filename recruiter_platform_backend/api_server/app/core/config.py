@@ -95,6 +95,32 @@ class Settings(BaseSettings):
         description="Max raster width in CSS pixels for CV preview images.",
     )
 
+    mcp_cv_tools_url: str = Field(
+        default="http://127.0.0.1:8765/mcp",
+        description=(
+            "Streamable-HTTP MCP URL for CV extraction (FastMCP: ``--transport streamable-http``). "
+            "The cv_parser agent always calls MCP tool ``parse_candidate_cv_structured``; "
+            "LlamaCloud / LlamaIndex parsing runs inside that MCP tool."
+        ),
+    )
+    mcp_cv_auto_start: bool = Field(
+        default=True,
+        description=(
+            "When true and MCP_CV_TOOLS_URL uses loopback, start ``mcp_server`` FastMCP on that port "
+            "after gRPC starts (requires ``uv`` on PATH and mcp_server/.env with LLAMA_CLOUD_API_KEY). "
+            "Set false if you start MCP manually."
+        ),
+    )
+
+    trace_log_to_files: bool = Field(
+        default=True,
+        description="When true, append agent trace JSON lines to files under TRACE_LOG_DIR.",
+    )
+    trace_log_dir: str = Field(
+        default="logs",
+        description="Directory for agent trace logs (relative to api_server root unless absolute).",
+    )
+
     @field_validator("cors_allow_origin_regex", mode="before")
     @classmethod
     def _empty_cors_regex_to_none(cls, v: object) -> object:
@@ -107,6 +133,13 @@ class Settings(BaseSettings):
     def _empty_llama_ids_to_none(cls, v: object) -> object:
         if v == "":
             return None
+        return v
+
+    @field_validator("mcp_cv_tools_url", mode="before")
+    @classmethod
+    def _mcp_cv_tools_url_default(cls, v: object) -> object:
+        if v == "" or v is None:
+            return "http://127.0.0.1:8765/mcp"
         return v
 
     @computed_field

@@ -14,6 +14,7 @@ dependencies = [
     "langchain-core>=0.3.0",
     "langchain-ollama>=0.2.0",
     "langgraph>=1.1.10",
+    "mcp>=1.27.0",
     "llama-index-core>=0.12.0",
     "llama-index-embeddings-ollama>=0.4.0",
     "llama-index-readers-file>=0.4.0",

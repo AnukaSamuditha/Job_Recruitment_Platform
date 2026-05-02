@@ -623,6 +623,7 @@ dependencies = [
     { name = "fastmcp" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
+    { name = "httpx" },
     { name = "mcp" },
     { name = "pydantic-settings" },
 ]
@@ -632,6 +633,7 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=3.2.4" },
     { name = "grpcio", specifier = ">=1.80.0" },
     { name = "grpcio-tools", specifier = ">=1.80.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", specifier = ">=1.27.0" },
     { name = "pydantic-settings", specifier = ">=2.14.0" },
 ]

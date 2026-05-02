@@ -173,6 +173,15 @@ export type CandidateJobFit = {
   summary_line: string;
 };
 
+/** Recruiter LLM brief from cv_parser (stored under parse_result.cv_parser_agent). */
+export type CvParserAgentPayload = {
+  alignment_summary: string[];
+  gaps_or_questions: string[];
+  risk_flags: string[];
+  disclaimer: string;
+  error: string | null;
+};
+
 /** Full candidate row, CV-derived contact, parse status, and latest job screening text (no raster pages). */
 export type CandidateDetail = {
   id: string;
@@ -186,6 +195,7 @@ export type CandidateDetail = {
   cv_analysis: CandidateCvAnalysis;
   job_screening: CandidateJobScreening;
   job_fit?: CandidateJobFit | null;
+  cv_parser_agent?: CvParserAgentPayload | null;
 };
 
 export async function getCandidateDetail(

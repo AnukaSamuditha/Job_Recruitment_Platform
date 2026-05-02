@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n recruitment/v1/recruitment.proto\x12\x0erecruitment.v1\"c\n\x03Job\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05title\x18\x02 \x01(\t\x12\x0f\n\x07\x63ompany\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65scription_plain\x18\x04 \x01(\t\x12\x15\n\rhas_embedding\x18\x05 \x01(\x08\"\x1f\n\rGetJobRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\"2\n\x0eGetJobResponse\x12 \n\x03job\x18\x01 \x01(\x0b\x32\x13.recruitment.v1.Job\"L\n\x10\x43\x61ndidateSummary\x12\n\n\x02id\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\x16\n\x0e\x63v_storage_key\x18\x03 \x01(\t\"\'\n\x15ListCandidatesRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\"N\n\x16ListCandidatesResponse\x12\x34\n\ncandidates\x18\x01 \x03(\x0b\x32 .recruitment.v1.CandidateSummary\"E\n\x1d\x43omputeCandidateJobFitRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61ndidate_id\x18\x02 \x01(\t\"}\n\x1e\x43omputeCandidateJobFitResponse\x12\x15\n\roverall_score\x18\x01 \x01(\x05\x12\x16\n\x0ematched_skills\x18\x02 \x03(\t\x12\x16\n\x0emissing_skills\x18\x03 \x03(\t\x12\x14\n\x0csummary_line\x18\x04 \x01(\t2\xb4\x02\n\x0fRecruitmentData\x12G\n\x06GetJob\x12\x1d.recruitment.v1.GetJobRequest\x1a\x1e.recruitment.v1.GetJobResponse\x12_\n\x0eListCandidates\x12%.recruitment.v1.ListCandidatesRequest\x1a&.recruitment.v1.ListCandidatesResponse\x12w\n\x16\x43omputeCandidateJobFit\x12-.recruitment.v1.ComputeCandidateJobFitRequest\x1a..recruitment.v1.ComputeCandidateJobFitResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n recruitment/v1/recruitment.proto\x12\x0erecruitment.v1\"c\n\x03Job\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05title\x18\x02 \x01(\t\x12\x0f\n\x07\x63ompany\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65scription_plain\x18\x04 \x01(\t\x12\x15\n\rhas_embedding\x18\x05 \x01(\x08\"\x1f\n\rGetJobRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\"2\n\x0eGetJobResponse\x12 \n\x03job\x18\x01 \x01(\x0b\x32\x13.recruitment.v1.Job\"L\n\x10\x43\x61ndidateSummary\x12\n\n\x02id\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\x16\n\x0e\x63v_storage_key\x18\x03 \x01(\t\"\'\n\x15ListCandidatesRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\"N\n\x16ListCandidatesResponse\x12\x34\n\ncandidates\x18\x01 \x03(\x0b\x32 .recruitment.v1.CandidateSummary\"E\n\x1d\x43omputeCandidateJobFitRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61ndidate_id\x18\x02 \x01(\t\"}\n\x1e\x43omputeCandidateJobFitResponse\x12\x15\n\roverall_score\x18\x01 \x01(\x05\x12\x16\n\x0ematched_skills\x18\x02 \x03(\t\x12\x16\n\x0emissing_skills\x18\x03 \x03(\t\x12\x14\n\x0csummary_line\x18\x04 \x01(\t\"@\n\x18GetCandidateCvPdfRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61ndidate_id\x18\x02 \x01(\t\"M\n\x19GetCandidateCvPdfResponse\x12\x0b\n\x03pdf\x18\x01 \x01(\x0c\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\r\n\x05\x65rror\x18\x03 \x01(\t2\x9e\x03\n\x0fRecruitmentData\x12G\n\x06GetJob\x12\x1d.recruitment.v1.GetJobRequest\x1a\x1e.recruitment.v1.GetJobResponse\x12_\n\x0eListCandidates\x12%.recruitment.v1.ListCandidatesRequest\x1a&.recruitment.v1.ListCandidatesResponse\x12w\n\x16\x43omputeCandidateJobFit\x12-.recruitment.v1.ComputeCandidateJobFitRequest\x1a..recruitment.v1.ComputeCandidateJobFitResponse\x12h\n\x11GetCandidateCvPdf\x12(.recruitment.v1.GetCandidateCvPdfRequest\x1a).recruitment.v1.GetCandidateCvPdfResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -47,6 +47,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_COMPUTECANDIDATEJOBFITREQUEST']._serialized_end=506
   _globals['_COMPUTECANDIDATEJOBFITRESPONSE']._serialized_start=508
   _globals['_COMPUTECANDIDATEJOBFITRESPONSE']._serialized_end=633
-  _globals['_RECRUITMENTDATA']._serialized_start=636
-  _globals['_RECRUITMENTDATA']._serialized_end=944
+  _globals['_GETCANDIDATECVPDFREQUEST']._serialized_start=635
+  _globals['_GETCANDIDATECVPDFREQUEST']._serialized_end=699
+  _globals['_GETCANDIDATECVPDFRESPONSE']._serialized_start=701
+  _globals['_GETCANDIDATECVPDFRESPONSE']._serialized_end=778
+  _globals['_RECRUITMENTDATA']._serialized_start=781
+  _globals['_RECRUITMENTDATA']._serialized_end=1195
 # @@protoc_insertion_point(module_scope)

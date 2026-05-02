@@ -47,8 +47,21 @@ message ComputeCandidateJobFitResponse {
   string summary_line = 4;
 }
 
+// Fetch stored CV PDF bytes for MCP-side parsing (e.g. parse_candidate_cv_structured tool).
+message GetCandidateCvPdfRequest {
+  string job_id = 1;
+  string candidate_id = 2;
+}
+
+message GetCandidateCvPdfResponse {
+  bytes pdf = 1;
+  string display_name = 2;
+  string error = 3;
+}
+
 service RecruitmentData {
   rpc GetJob(GetJobRequest) returns (GetJobResponse);
   rpc ListCandidates(ListCandidatesRequest) returns (ListCandidatesResponse);
   rpc ComputeCandidateJobFit(ComputeCandidateJobFitRequest) returns (ComputeCandidateJobFitResponse);
+  rpc GetCandidateCvPdf(GetCandidateCvPdfRequest) returns (GetCandidateCvPdfResponse);
 }
