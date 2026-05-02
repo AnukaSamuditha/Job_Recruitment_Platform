@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package recruitment.v1;
+
+// Database-backed RPCs for MCP tool implementations only (see PLAN.md).
+
+message Job {
+  string id = 1;
+  string title = 2;
+  string company = 3;
+  string description_plain = 4;
+  bool has_embedding = 5;
+}
+
+message GetJobRequest {
+  string job_id = 1;
+}
+
+message GetJobResponse {
+  Job job = 1;
+}
+
+message CandidateSummary {
+  string id = 1;
+  string display_name = 2;
+  string cv_storage_key = 3;
+}
+
+message ListCandidatesRequest {
+  string job_id = 1;
+}
+
+message ListCandidatesResponse {
+  repeated CandidateSummary candidates = 1;
+}
+
+// Keyword overlap fit between job description and CV (used by MCP + screening pipeline).
+message ComputeCandidateJobFitRequest {
+  string job_id = 1;
+  string candidate_id = 2;
+}
+
+message ComputeCandidateJobFitResponse {
+  int32 overall_score = 1;
+  repeated string matched_skills = 2;
+  repeated string missing_skills = 3;
+  string summary_line = 4;
+}
+
+service RecruitmentData {
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  rpc ListCandidates(ListCandidatesRequest) returns (ListCandidatesResponse);
+  rpc ComputeCandidateJobFit(ComputeCandidateJobFitRequest) returns (ComputeCandidateJobFitResponse);
+}
