@@ -5,12 +5,17 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.agents.deps import ScreeningGraphDeps
 from app.agents.runtime import LLM_EMPTY_REPLY, coerce_llm_message_content, log_agent_step
 from app.agents.state import ScreeningState
+from app.agents.tracing import make_trace
 from app.models.screening_run import ScreeningRun
+from app.prompts.interview_agent import (
+    INTERVIEW_AGENT_SYSTEM,
+    build_interview_human,
+)
 
 
 def create_interview_agent_node(deps: ScreeningGraphDeps):
@@ -21,11 +26,17 @@ def create_interview_agent_node(deps: ScreeningGraphDeps):
         await deps.broadcaster.publish(
             str(run_id), {"type": "interview_gen", "detail": "Interview question agent"}
         )
-        prompt = (
-            "Propose 5 interview questions (mix technical and behavioral) informed by this ranking.\n"
-            f"{state.get('ranking_summary','')}"
+        human = build_interview_human(
+            match_summary=state.get("match_summary") or "",
+            ranking_summary=state.get("ranking_summary") or "",
+            parse_notes=state.get("parse_notes") or "",
         )
-        msg = await llm.ainvoke([SystemMessage(content=prompt)])
+        msg = await llm.ainvoke(
+            [
+                SystemMessage(content=INTERVIEW_AGENT_SYSTEM),
+                HumanMessage(content=human),
+            ]
+        )
         summary = coerce_llm_message_content(getattr(msg, "content", None)).strip() or LLM_EMPTY_REPLY
         async with deps.session_factory() as session:
             await log_agent_step(
@@ -33,7 +44,26 @@ def create_interview_agent_node(deps: ScreeningGraphDeps):
                 run_id=run_id,
                 agent_name="interview",
                 step_type="result",
-                payload={"summary": summary[:4000]},
+                payload={
+                    "summary": summary[:4000],
+                    "trace": make_trace(
+                        inputs={
+                            "match_summary_chars": len(state.get("match_summary") or ""),
+                            "ranking_summary_chars": len(state.get("ranking_summary") or ""),
+                            "parse_notes_chars": len(state.get("parse_notes") or ""),
+                        },
+                        tool_calls=[
+                            {
+                                "name": "ChatOllama",
+                                "type": "llm",
+                                "task": "interview_questions",
+                                "input": {"messages": "system+human (see prompts/interview_agent.py)"},
+                                "output": {"chars": len(summary)},
+                            }
+                        ],
+                        outputs={"summary_chars": len(summary), "ok": True},
+                    ),
+                },
             )
             run = await session.get(ScreeningRun, run_id)
             if run:

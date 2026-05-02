@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 from contextlib import asynccontextmanager
 
@@ -20,11 +21,24 @@ from app.core.database import async_session_maker
 from app.graph.screening_graph import build_screening_graph
 from app.rpc.serve import start_grpc_server, stop_grpc_server
 from app.services.embedding_service import EmbeddingService
+from app.agents.tracing import configure_trace_file_logging
+from app.services.mcp_cv_autostart import ensure_mcp_cv_subprocess, terminate_mcp_cv_subprocess
 from app.services.minio_storage import MinioStorageService
 from app.ws.broadcast import ScreeningBroadcaster
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+_api_root = Path(__file__).resolve().parent.parent
+_settings_for_logs = get_settings()
+_trace_dir = Path(_settings_for_logs.trace_log_dir)
+_trace_log_dir = _trace_dir if _trace_dir.is_absolute() else _api_root / _trace_dir
+_trace_path = configure_trace_file_logging(
+    log_dir=_trace_log_dir,
+    enabled=_settings_for_logs.trace_log_to_files,
+)
+if _trace_path:
+    logger.info("Agent traces file: %s", _trace_path)
 
 
 @asynccontextmanager
@@ -47,12 +61,19 @@ async def lifespan(app: FastAPI):
 
     grpc_server = await start_grpc_server(
         session_factory=async_session_maker,
+        minio=storage,
         host=settings.grpc_bind_host,
         port=settings.grpc_port,
     )
     app.state.grpc_server = grpc_server
     logger.info("REST on port %s, gRPC on %s", settings.port, settings.grpc_port)
+
+    mcp_proc = await ensure_mcp_cv_subprocess(settings)
+    app.state.mcp_cv_subprocess = mcp_proc
+
     yield
+
+    terminate_mcp_cv_subprocess(getattr(app.state, "mcp_cv_subprocess", None))
     await stop_grpc_server(grpc_server)
 
 

@@ -2,21 +2,28 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import grpc
 from grpc import aio
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from app.models.candidate import Candidate
 from app.services.candidate_service import CandidateService
 from app.services.job_candidate_fit import compute_job_candidate_fit
 from app.services.job_service import JobService
+from app.services.minio_storage import MinioStorageService
 
 from recruitment.v1 import recruitment_pb2, recruitment_pb2_grpc
+
+_MAX_CV_PDF_BYTES = 15 * 1024 * 1024
 
 
 def build_recruitment_servicer(
     session_factory: async_sessionmaker,
+    *,
+    minio: MinioStorageService,
 ) -> recruitment_pb2_grpc.RecruitmentDataServicer:
     class Servicer(recruitment_pb2_grpc.RecruitmentDataServicer):
         async def GetJob(
@@ -86,6 +93,38 @@ def build_recruitment_servicer(
                     matched_skills=fit.matched_skills,
                     missing_skills=fit.missing_skills,
                     summary_line=fit.summary_line,
+                )
+
+        async def GetCandidateCvPdf(
+            self,
+            request: recruitment_pb2.GetCandidateCvPdfRequest,
+            context: aio.ServicerContext,
+        ) -> recruitment_pb2.GetCandidateCvPdfResponse:
+            try:
+                jid = uuid.UUID(request.job_id.strip())
+                cid = uuid.UUID(request.candidate_id.strip())
+            except ValueError:
+                return recruitment_pb2.GetCandidateCvPdfResponse(error="invalid job_id or candidate_id")
+            async with session_factory() as session:
+                cand = await session.get(Candidate, cid)
+                if cand is None or cand.job_id != jid:
+                    context.set_code(grpc.StatusCode.NOT_FOUND)
+                    return recruitment_pb2.GetCandidateCvPdfResponse(error="candidate not found for job")
+                try:
+                    pdf_bytes = await asyncio.to_thread(minio.get_object_bytes, cand.cv_storage_key)
+                except Exception as exc:  # noqa: BLE001
+                    context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+                    return recruitment_pb2.GetCandidateCvPdfResponse(
+                        error=f"could not read cv from storage: {exc}",
+                    )
+                if len(pdf_bytes) > _MAX_CV_PDF_BYTES:
+                    context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
+                    return recruitment_pb2.GetCandidateCvPdfResponse(
+                        error=f"pdf exceeds max size ({_MAX_CV_PDF_BYTES} bytes)",
+                    )
+                return recruitment_pb2.GetCandidateCvPdfResponse(
+                    pdf=pdf_bytes,
+                    display_name=cand.display_name or "",
                 )
 
     return Servicer()

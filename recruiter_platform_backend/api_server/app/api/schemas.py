@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.cv_parser_agent import CvParserAgentRead
+
 
 class JobCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=512)
@@ -129,6 +131,10 @@ class CandidateDetailRead(BaseModel):
     job_fit: CandidateJobFitRead | None = Field(
         default=None,
         description="Latest persisted job–CV fit from screening (skill matcher step).",
+    )
+    cv_parser_agent: CvParserAgentRead | None = Field(
+        default=None,
+        description="Recruiter LLM brief (alignment, follow-ups, process checks) from cv_parser after parse.",
     )
 
 

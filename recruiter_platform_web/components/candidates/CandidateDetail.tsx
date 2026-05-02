@@ -62,20 +62,7 @@ function jobScreeningToSnippets(js: CandidateJobScreening | undefined): Record<s
   return Object.keys(o).length ? o : null;
 }
 
-function friendlyCvStepLabel(step: string | null | undefined): string {
-  if (!step) return "";
-  const labels: Record<string, string> = {
-    llamaparse_structured: "CV read successfully",
-    error: "Could not finish reading the CV",
-    skipped: "CV read was skipped",
-    pipeline_started_without_outcome: "Started but no result was saved",
-    parser_not_attributed: "No import log for this person",
-    no_cv_parser_activity: "CV not processed yet",
-  };
-  return labels[step] ?? step.replace(/_/g, " ");
-}
-
-/** Turn model output into short lines for the interview card. */
+/** Turn model output into short lines for the interview panel. */
 function splitInterviewLines(text: string): string[] {
   return text
     .split(/\n+/)
@@ -83,15 +70,7 @@ function splitInterviewLines(text: string): string[] {
     .filter((l) => l.length > 3);
 }
 
-function ProfileBody({
-  profile,
-  matchedFromJob = [],
-  missingFromJob = [],
-}: {
-  profile: Record<string, unknown>;
-  matchedFromJob?: string[];
-  missingFromJob?: string[];
-}) {
+function ProfileBody({ profile }: { profile: Record<string, unknown> }) {
   const fullName = strVal(profile.full_name);
   const email = strVal(profile.email);
   const phone = strVal(profile.phone);
@@ -127,40 +106,6 @@ function ProfileBody({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {skills.slice(0, 48).map((s, idx) => (
               <Badge key={`${s}-${idx}`} variant="secondary" className="font-normal">
-                {s}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-      {matchedFromJob.length > 0 && (
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Also mentioned in the job post
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Words from the role description that appear to match this CV (automatic check).
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {matchedFromJob.slice(0, 24).map((s, idx) => (
-              <Badge key={`m-${s}-${idx}`} variant="outline" className="font-normal border-emerald-500/40 text-emerald-900 dark:text-emerald-100">
-                {s}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-      {missingFromJob.length > 0 && (
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Job post mentions — not obvious on the CV
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Keywords from the job text we did not clearly see on the résumé. Treat as hints, not a verdict.
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {missingFromJob.slice(0, 20).map((s, idx) => (
-              <Badge key={`g-${s}-${idx}`} variant="outline" className="font-normal border-amber-500/50 text-amber-950 dark:text-amber-100">
                 {s}
               </Badge>
             ))}
@@ -239,6 +184,7 @@ export default function CandidateDetail({
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [fatalError, setFatalError] = useState<string | null>(null);
+  const [interviewPanelOpen, setInterviewPanelOpen] = useState(false);
 
   useEffect(() => {
     if (!jobId || jobId === "unknown" || !candidate.id) {
@@ -254,6 +200,7 @@ export default function CandidateDetail({
     setPages([]);
     setDetail(null);
     setPreviewExtras(null);
+    setInterviewPanelOpen(false);
     void (async () => {
       const previewP = getCandidateCvPreview(jobId, candidate.id);
       const detailP = getCandidateDetail(jobId, candidate.id);
@@ -337,9 +284,10 @@ export default function CandidateDetail({
   }, [detail?.contact]);
 
   const jobFitScore = detail?.job_fit?.overall_score;
-  const matchedFromJob = detail?.job_fit?.matched_skills ?? [];
-  const missingFromJob = detail?.job_fit?.missing_skills ?? [];
+  const missingSkills = detail?.job_fit?.missing_skills ?? [];
   const jobFitSummary = detail?.job_fit?.summary_line?.trim() ?? "";
+
+  const interviewRaw = screening?.interview?.trim() ?? "";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
@@ -411,249 +359,324 @@ export default function CandidateDetail({
           {/* Insights */}
           <section
             aria-label="Candidate overview"
-            className="flex min-h-0 min-w-0 flex-1 flex-col bg-card lg:max-w-[50%]"
+            className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-card lg:max-w-[50%]"
           >
             <div className="shrink-0 border-b border-border/50 px-4 py-3 sm:px-6">
               <h3 className="text-sm font-semibold text-foreground">At a glance</h3>
-              <p className="text-xs text-muted-foreground">Fit with this role, CV highlights, and suggested questions</p>
+              <p className="text-xs text-muted-foreground">
+                Contact, quick take, CV detail — then match score and missing technical skills
+              </p>
             </div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-              {detailError ? (
-                <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
-                  Profile API unavailable ({detailError}). Showing whatever the preview endpoint returned.
-                </p>
-              ) : null}
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Fit with this job posting</CardDescription>
-                  <CardTitle className="text-3xl font-semibold text-[var(--accent)] tabular-nums">
-                    {typeof jobFitScore === "number" ? `${jobFitScore}%` : candidate.score > 0 ? `${candidate.score}%` : "—"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    {jobFitSummary ||
-                      "After screening runs, we compare important words in the job description with the CV. Re-run screening to refresh this score."}
-                  </p>
-                  {typeof jobFitScore !== "number" && candidate.score > 0 ? (
-                    <p className="text-xs text-muted-foreground">Shortlist table score (legacy): {candidate.score}%</p>
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <div className="h-full overflow-y-auto p-4 sm:p-6">
+                <div className="space-y-4">
+                  {detailError ? (
+                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+                      Profile API unavailable ({detailError}). Showing whatever the preview endpoint returned.
+                    </p>
                   ) : null}
-                </CardContent>
-              </Card>
 
-              {detail &&
-              (detail.contact.email ||
-                detail.contact.phone ||
-                detail.contact.location ||
-                detail.contact.headline) ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">How to reach them</CardTitle>
-                    <CardDescription>From the résumé when we could read it clearly.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-1 text-sm text-muted-foreground">
-                    {detail.contact.headline ? (
-                      <p className="text-foreground/90">{detail.contact.headline}</p>
-                    ) : null}
-                    <dl className="grid gap-1 text-xs sm:grid-cols-2">
-                      {detail.contact.email ? (
-                        <>
-                          <dt className="font-medium text-muted-foreground">Email</dt>
-                          <dd className="text-foreground">{detail.contact.email}</dd>
-                        </>
-                      ) : null}
-                      {detail.contact.phone ? (
-                        <>
-                          <dt className="font-medium text-muted-foreground">Phone</dt>
-                          <dd className="text-foreground">{detail.contact.phone}</dd>
-                        </>
-                      ) : null}
-                      {detail.contact.location ? (
-                        <>
-                          <dt className="font-medium text-muted-foreground">Location</dt>
-                          <dd className="text-foreground">{detail.contact.location}</dd>
-                        </>
-                      ) : null}
-                    </dl>
-                  </CardContent>
-                </Card>
-              ) : null}
+                  {detail &&
+                  (detail.contact.email ||
+                    detail.contact.phone ||
+                    detail.contact.location ||
+                    detail.contact.headline) ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">How to reach them</CardTitle>
+                        <CardDescription>From the résumé when we could read it clearly.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-1 text-sm text-muted-foreground">
+                        {detail.contact.headline ? (
+                          <p className="text-foreground/90">{detail.contact.headline}</p>
+                        ) : null}
+                        <dl className="grid gap-1 text-xs sm:grid-cols-2">
+                          {detail.contact.email ? (
+                            <>
+                              <dt className="font-medium text-muted-foreground">Email</dt>
+                              <dd className="text-foreground">{detail.contact.email}</dd>
+                            </>
+                          ) : null}
+                          {detail.contact.phone ? (
+                            <>
+                              <dt className="font-medium text-muted-foreground">Phone</dt>
+                              <dd className="text-foreground">{detail.contact.phone}</dd>
+                            </>
+                          ) : null}
+                          {detail.contact.location ? (
+                            <>
+                              <dt className="font-medium text-muted-foreground">Location</dt>
+                              <dd className="text-foreground">{detail.contact.location}</dd>
+                            </>
+                          ) : null}
+                        </dl>
+                      </CardContent>
+                    </Card>
+                  ) : null}
 
-              {detail &&
-              (detail.cv_analysis.step_type ||
-                detail.cv_analysis.detail != null ||
-                detail.cv_analysis.skills_count != null ||
-                detail.cv_analysis.screening_run_id != null) ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Résumé file import</CardTitle>
-                    <CardDescription>Whether the automated reader finished for this person.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-xs text-muted-foreground">
-                    {detail.cv_analysis.step_type ? (
-                      <p>
-                        <span className="font-medium text-foreground">Status:</span>{" "}
-                        {friendlyCvStepLabel(detail.cv_analysis.step_type)}
-                      </p>
-                    ) : null}
-                    {detail.cv_analysis.recorded_at ? (
-                      <p>
-                        <span className="font-medium text-foreground">Recorded:</span>{" "}
-                        {new Date(detail.cv_analysis.recorded_at).toLocaleString()}
-                      </p>
-                    ) : null}
-                    {detail.cv_analysis.skills_count != null || detail.cv_analysis.roles_count != null ? (
-                      <p>
-                        <span className="font-medium text-foreground">Extracted:</span>{" "}
-                        {detail.cv_analysis.skills_count ?? "—"} skills,{" "}
-                        {detail.cv_analysis.roles_count ?? "—"} roles
-                        {detail.cv_analysis.schema_name
-                          ? ` (${detail.cv_analysis.schema_name})`
-                          : ""}
-                      </p>
-                    ) : null}
-                    {detail.cv_analysis.detail ? (
-                      <pre
-                        className={
-                          detail.cv_analysis.step_type === "error"
-                            ? "max-h-32 overflow-auto whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/5 p-2 font-sans text-destructive"
-                            : "max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border/50 bg-muted/30 p-2 font-sans text-foreground/90"
-                        }
-                      >
-                        {detail.cv_analysis.detail}
-                      </pre>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              ) : null}
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">What we read from the CV</CardTitle>
-                  <CardDescription>Structured fields when extraction succeeds.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {loading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" aria-hidden />
-                      Loading…
-                    </div>
-                  ) : profileHasMeaningfulData(structuredProfile) ? (
-                    <ProfileBody
-                      profile={structuredProfile!}
-                      matchedFromJob={matchedFromJob}
-                      missingFromJob={missingFromJob}
-                    />
-                  ) : structuredProfile && Object.keys(structuredProfile).length > 0 ? (
-                    <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground">
-                        Structured extraction ran but every field is empty. The CV layout may be unclear to the
-                        parser, or LlamaCloud returned an empty object.
-                      </p>
-                      {summaryText && (
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Plain-text summary
+                  {detail?.cv_parser_agent ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Quick take for this role</CardTitle>
+                        <CardDescription>
+                          Short, plain-language pointers from your assistant after reading the CV and job posting — use
+                          with your own judgment, not as a hire/no-hire verdict.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-5 text-sm">
+                        {detail.cv_parser_agent.error ? (
+                          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+                            We couldn&apos;t finish these notes: {detail.cv_parser_agent.error}
                           </p>
-                          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border/50 bg-muted/30 p-3 font-sans text-xs leading-relaxed">
+                        ) : null}
+
+                        <div>
+                          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Job alignment
+                          </h4>
+                          {detail.cv_parser_agent.alignment_summary.length > 0 ? (
+                            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-foreground/90">
+                              {detail.cv_parser_agent.alignment_summary.map((line, i) => (
+                                <li key={i} className="leading-relaxed">
+                                  {line}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-2 text-xs text-muted-foreground">No alignment bullets returned.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Interview follow-ups
+                          </h4>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Suggested neutral questions for the hiring manager — not accusations.
+                          </p>
+                          {detail.cv_parser_agent.gaps_or_questions.length > 0 ? (
+                            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-foreground/90">
+                              {detail.cv_parser_agent.gaps_or_questions.map((line, i) => (
+                                <li key={i} className="leading-relaxed">
+                                  {line}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-2 text-xs text-muted-foreground">No follow-up items returned.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Process checks
+                          </h4>
+                          {detail.cv_parser_agent.risk_flags.length > 0 ? (
+                            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-foreground/90">
+                              {detail.cv_parser_agent.risk_flags.map((line, i) => (
+                                <li key={i} className="leading-relaxed">
+                                  {line}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              None flagged from CV dates or timeline in the structured data.
+                            </p>
+                          )}
+                        </div>
+
+                        <p className="border-t border-border/50 pt-3 text-xs leading-relaxed text-muted-foreground">
+                          {detail.cv_parser_agent.disclaimer}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : null}
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">What we read from the CV</CardTitle>
+                      <CardDescription>Structured fields when extraction succeeds.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {loading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" aria-hidden />
+                          Loading…
+                        </div>
+                      ) : profileHasMeaningfulData(structuredProfile) ? (
+                        <ProfileBody profile={structuredProfile!} />
+                      ) : structuredProfile && Object.keys(structuredProfile).length > 0 ? (
+                        <div className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Structured extraction ran but every field is empty. The CV layout may be unclear to the
+                            parser, or LlamaCloud returned an empty object.
+                          </p>
+                          {summaryText && (
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Plain-text summary
+                              </p>
+                              <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border/50 bg-muted/30 p-3 font-sans text-xs leading-relaxed">
+                                {summaryText}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      ) : summaryText ? (
+                        <div>
+                          <p className="mb-2 text-sm text-muted-foreground">
+                            No filled structured JSON yet; below is the text summary stored for agents.
+                          </p>
+                          <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border/50 bg-muted/30 p-3 font-sans text-xs leading-relaxed">
                             {summaryText}
                           </pre>
                         </div>
-                      )}
-                    </div>
-                  ) : summaryText ? (
-                    <div>
-                      <p className="mb-2 text-sm text-muted-foreground">
-                        No filled structured JSON yet; below is the text summary stored for agents.
-                      </p>
-                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border/50 bg-muted/30 p-3 font-sans text-xs leading-relaxed">
-                        {summaryText}
-                      </pre>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No structured data yet. It appears when LlamaParse structured extraction succeeds during
-                      screening (check the activity feed for parse issues). After a successful run, reopen this
-                      panel or refresh the shortlist—the name column updates from the extracted full name.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {summaryText && profileHasMeaningfulData(structuredProfile) && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Extra detail from the CV</CardTitle>
-                    <CardDescription>Longer text we keep for reviewers and follow-up steps.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border/50 bg-muted/30 p-3 font-sans text-xs leading-relaxed">
-                      {summaryText}
-                    </pre>
-                  </CardContent>
-                </Card>
-              )}
-
-              {screening?.interview ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Suggested interview questions</CardTitle>
-                    <CardDescription>Ideas based on the latest review pass for this job.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {(() => {
-                      const lines = splitInterviewLines(screening.interview);
-                      return lines.length > 0 ? (
-                        <ol className="list-decimal space-y-3 pl-4 text-sm text-foreground/90">
-                          {lines.map((line, i) => (
-                            <li key={i} className="leading-relaxed">
-                              {line}
-                            </li>
-                          ))}
-                        </ol>
                       ) : (
-                        <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border/40 bg-muted/20 p-3 font-sans text-sm leading-relaxed">
-                          {screening.interview}
-                        </pre>
-                      );
-                    })()}
-                    <details className="mt-4">
-                      <summary className="cursor-pointer text-xs text-muted-foreground">Show original wording</summary>
-                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border/40 bg-muted/20 p-3 font-sans text-xs leading-relaxed text-muted-foreground">
-                        {screening.interview}
-                      </pre>
-                    </details>
-                  </CardContent>
-                </Card>
-              ) : null}
+                        <p className="text-sm text-muted-foreground">
+                          No structured data yet. It appears when LlamaParse structured extraction succeeds during
+                          screening (check the activity feed for parse issues). After a successful run, reopen this
+                          panel or refresh the shortlist—the name column updates from the extracted full name.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
 
-              {screening?.skill_match ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Strengths and gaps (narrative)</CardTitle>
-                    <CardDescription>Short written take on how they line up with the role.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="max-h-52 overflow-auto whitespace-pre-wrap rounded-md border border-border/40 bg-muted/20 p-3 font-sans text-sm leading-relaxed">
-                      {screening.skill_match}
-                    </pre>
-                  </CardContent>
-                </Card>
-              ) : null}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardDescription>Fit with this job posting</CardDescription>
+                      <CardTitle className="text-3xl font-semibold text-[var(--accent)] tabular-nums">
+                        {typeof jobFitScore === "number"
+                          ? `${jobFitScore}%`
+                          : candidate.score > 0
+                            ? `${candidate.score}%`
+                            : "—"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {jobFitSummary ||
+                          "After screening runs, we compare important words in the job description with the CV. Re-run screening to refresh this score."}
+                      </p>
+                      {typeof jobFitScore !== "number" && candidate.score > 0 ? (
+                        <p className="text-xs text-muted-foreground">Shortlist table score (legacy): {candidate.score}%</p>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => setInterviewPanelOpen(true)}
+                      >
+                        Preview interview questions
+                      </Button>
+                    </CardContent>
+                  </Card>
 
-              {screening?.ranking ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Compared with other applicants</CardTitle>
-                    <CardDescription>From the latest batch for this job — may mention several people.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-border/40 bg-muted/20 p-3 font-sans text-sm leading-relaxed">
-                      {screening.ranking}
-                    </pre>
-                  </CardContent>
-                </Card>
+                  {missingSkills.length > 0 ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Missing technical skills</CardTitle>
+                        <CardDescription>
+                          Tools, stacks, or technical terms called out in the job description that we did not clearly
+                          find on this CV (automatic match — always double-check).
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-1.5">
+                          {missingSkills.map((s, idx) => (
+                            <Badge
+                              key={`miss-${s}-${idx}`}
+                              variant="outline"
+                              className="font-normal border-amber-500/50 text-amber-950 dark:text-amber-100"
+                            >
+                              {s}
+                            </Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : detail?.job_fit != null ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Missing technical skills</CardTitle>
+                        <CardDescription>
+                          No obvious technical gaps vs the job posting after the last screening run, or the job text
+                          had little we could match as technical skills.
+                        </CardDescription>
+                      </CardHeader>
+                    </Card>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Interview questions slide-over (right column only) */}
+              {interviewPanelOpen ? (
+                <div
+                  className="absolute inset-0 z-30 flex flex-col border-l border-border bg-card shadow-xl"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="interview-panel-title"
+                >
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-6">
+                    <div>
+                      <h3 id="interview-panel-title" className="text-sm font-semibold text-foreground">
+                        Interview questions
+                      </h3>
+                      <p className="text-xs text-muted-foreground">Latest screening pass for this job</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setInterviewPanelOpen(false)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                    {interviewRaw ? (
+                      <>
+                        {(() => {
+                          const lines = splitInterviewLines(interviewRaw);
+                          return lines.length > 0 ? (
+                            <ol className="list-decimal space-y-3 pl-4 text-sm text-foreground/90">
+                              {lines.map((line, i) => (
+                                <li key={i} className="leading-relaxed">
+                                  {line}
+                                </li>
+                              ))}
+                            </ol>
+                          ) : (
+                            <pre className="max-h-[min(70vh,32rem)] overflow-auto whitespace-pre-wrap rounded-md border border-border/40 bg-muted/20 p-3 font-sans text-sm leading-relaxed">
+                              {interviewRaw}
+                            </pre>
+                          );
+                        })()}
+                        <details className="mt-6">
+                          <summary className="cursor-pointer text-xs text-muted-foreground">Raw model output</summary>
+                          <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border/40 bg-muted/20 p-3 font-sans text-xs leading-relaxed text-muted-foreground">
+                            {interviewRaw}
+                          </pre>
+                        </details>
+                      </>
+                    ) : (
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <p>
+                          No interview questions are stored for this job yet. Run <strong>screening</strong> for this
+                          job and wait until the pipeline finishes — questions are generated in the final interview
+                          step from the skill match and ranking summaries.
+                        </p>
+                        <p className="text-xs">
+                          If screening completes but this stays empty, check that Ollama is running and
+                          <code className="mx-1 rounded bg-muted px-1">OLLAMA_CHAT_MODEL</code> is pulled on the API
+                          server.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : null}
             </div>
           </section>

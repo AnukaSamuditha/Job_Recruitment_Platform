@@ -73,3 +73,21 @@ class ComputeCandidateJobFitResponse(_message.Message):
     missing_skills: _containers.RepeatedScalarFieldContainer[str]
     summary_line: str
     def __init__(self, overall_score: _Optional[int] = ..., matched_skills: _Optional[_Iterable[str]] = ..., missing_skills: _Optional[_Iterable[str]] = ..., summary_line: _Optional[str] = ...) -> None: ...
+
+class GetCandidateCvPdfRequest(_message.Message):
+    __slots__ = ("job_id", "candidate_id")
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    CANDIDATE_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    candidate_id: str
+    def __init__(self, job_id: _Optional[str] = ..., candidate_id: _Optional[str] = ...) -> None: ...
+
+class GetCandidateCvPdfResponse(_message.Message):
+    __slots__ = ("pdf", "display_name", "error")
+    PDF_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    pdf: bytes
+    display_name: str
+    error: str
+    def __init__(self, pdf: _Optional[bytes] = ..., display_name: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...

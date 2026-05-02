@@ -5,7 +5,7 @@ This folder contains two Python services:
 | Service | Role |
 |--------|------|
 | **`api_server/`** | FastAPI REST API, async PostgreSQL, MinIO uploads, LangGraph screening, gRPC `RecruitmentData` facade, WebSockets for screening progress |
-| **`mcp_server/`** | FastMCP server exposing tools (jobs, candidates, job–CV fit) that call the API over **gRPC** |
+| **`mcp_server/`** | FastMCP server exposing tools (jobs, candidates, job–CV fit, structured CV parse) that call the API over **gRPC** (and LlamaCloud where needed) |
 
 The repository root also has **`docker-compose.yml`** (PostgreSQL + pgvector, MinIO) used by both services.
 
@@ -83,6 +83,8 @@ Copy-Item .env.example .env
 
 Optional: `LLAMA_CLOUD_ORGANIZATION_ID`, `LLAMA_CLOUD_PROJECT_ID`, parse timeouts, `CV_PREVIEW_*`, etc. — see `app/core/config.py` and `.env.example`.
 
+**`MCP_CV_TOOLS_URL`** — screening **`cv_parser`** always calls the MCP tool **`parse_candidate_cv_structured`** at this streamable-HTTP URL (default **`http://127.0.0.1:8765/mcp`** — avoid a trailing slash; FastMCP may **307**-redirect **`/mcp/`** to **`/mcp`**, which breaks the MCP HTTP client). LlamaCloud runs **inside the MCP server**; set **`LLAMA_CLOUD_API_KEY`** in **`mcp_server/.env`**. With **`MCP_CV_AUTO_START=true`** (default), the API starts MCP on that loopback port after gRPC is up (**`uv`** must be on your PATH). Set **`MCP_CV_AUTO_START=false`** to run MCP yourself from **`mcp_server/`** (see section 3.4). If the API runs in Docker and MCP on the host, use **`http://host.docker.internal:8765/mcp`** and configure MCP gRPC to reach the API (often **`API_GRPC_HOST=host.docker.internal`**).
+
 You can also copy the repo root **`.env.example`** into `api_server/.env` if you keep one consolidated file; the API loads **`api_server/.env`** via Pydantic settings.
 
 ### 2.3 Database migrations
@@ -144,6 +146,8 @@ cp .env.example .env
 
 Set **`API_GRPC_HOST`** and **`API_GRPC_PORT`** to match the machine where `api_server` is running (defaults `127.0.0.1` and `50051`). Optionally set **`API_GRPC_TARGET`** to a full `host:port` string.
 
+For **`parse_candidate_cv_structured`**, set **`LLAMA_CLOUD_API_KEY`** on the MCP server (same cloud account as ingest). Optional LlamaCloud fields match the API (see `mcp_server/.env.example`).
+
 ### 3.3 Run MCP (stdio, for Cursor / Claude Desktop)
 
 From `recruiter_platform_backend/mcp_server`:
@@ -152,7 +156,18 @@ From `recruiter_platform_backend/mcp_server`:
 uv run fastmcp run app/main.py --transport stdio
 ```
 
-Tools include (non-exhaustive): **`db_get_job`**, **`db_list_candidates`**, **`compute_candidate_job_fit`** — all backed by the API’s gRPC `RecruitmentData` service.
+### 3.4 Run MCP (streamable HTTP, for `MCP_CV_TOOLS_URL`)
+
+Use a dedicated port (for example **8765**) so it does not clash with the API’s HTTP port:
+
+```bash
+cd recruiter_platform_backend/mcp_server
+uv run fastmcp run app/main.py --transport streamable-http --host 127.0.0.1 --port 8765
+```
+
+Then set **`MCP_CV_TOOLS_URL=http://127.0.0.1:8765/mcp`** in `api_server/.env` (no trailing slash). The API must still be running with gRPC enabled so MCP can call **`GetCandidateCvPdf`** and other `RecruitmentData` RPCs.
+
+Tools are implemented under **`mcp_server/app/tools/`** (one file per tool). They include **`db_get_job`**, **`db_list_candidates`**, **`compute_candidate_job_fit`**, and **`parse_candidate_cv_structured`** (gRPC fetch PDF → LlamaCloud structured JSON).
 
 ---
 
@@ -191,6 +206,7 @@ Ensure `PYTHONPATH` / imports resolve to `app/gen` (see each service’s `main.p
 4. `LLAMA_CLOUD_API_KEY` set — CV upload path works  
 5. Ollama models pulled — screening graph can run chat/embed steps  
 6. MCP: API running on gRPC port — `compute_candidate_job_fit` returns JSON, not a gRPC error string  
+7. MCP on streamable HTTP (default port **8765**) with `LLAMA_CLOUD_API_KEY` on MCP — screening `cv_parser` reaches it via `MCP_CV_TOOLS_URL` (check `logs/agent_traces.log` / agent steps; payloads include `via_mcp: true`)  
 
 ---
 
@@ -223,7 +239,11 @@ recruiter_platform_backend/
 │   ├── pyproject.toml
 │   └── .env.example
 └── mcp_server/
-    ├── app/main.py           # FastMCP tools → gRPC
+    ├── app/
+    │   ├── main.py           # FastMCP app + tool registration
+    │   ├── tools/            # One module per MCP tool (gRPC + LlamaParse)
+    │   ├── services/         # LlamaCloud HTTP helper for parse tool
+    │   └── gen/              # Generated gRPC stubs (see Makefile)
     ├── pyproject.toml
     └── .env.example
 ```

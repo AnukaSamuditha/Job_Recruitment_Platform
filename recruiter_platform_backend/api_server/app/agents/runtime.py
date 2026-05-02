@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.tracing import emit_screening_trace
 from app.models.agent_step import AgentStep
 
 LLM_EMPTY_REPLY = (
@@ -59,3 +60,9 @@ async def log_agent_step(
         )
     )
     await session.flush()
+    emit_screening_trace(
+        screening_run_id=run_id,
+        agent_name=agent_name,
+        step_type=step_type,
+        payload=payload,
+    )

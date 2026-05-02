@@ -11,3 +11,6 @@ wheels/
 
 
 .env
+
+# Agent trace JSONL (TRACE_LOG_DIR)
+logs/
