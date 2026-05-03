@@ -340,3 +340,17 @@ export async function startScreeningRun(
   });
   return parseJson<ScreeningRun>(res);
 }
+
+export async function rankCandidates(jobId: string): Promise<{ screening_run_id: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/jobs/${jobId}/rank-all`, {
+    method: "POST",
+  });
+  return parseJson(res);
+}
+
+export async function getJobScreening(jobId: string): Promise<CandidateJobScreening> {
+  const res = await fetch(`${API_BASE}/api/v1/jobs/${jobId}/screening`, {
+    cache: "no-store",
+  });
+  return parseJson<CandidateJobScreening>(res);
+}

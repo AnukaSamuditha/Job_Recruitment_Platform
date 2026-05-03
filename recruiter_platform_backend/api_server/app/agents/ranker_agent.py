@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.agents.deps import ScreeningGraphDeps
 from app.agents.runtime import LLM_EMPTY_REPLY, coerce_llm_message_content, log_agent_step
@@ -23,7 +23,7 @@ def create_ranker_node(deps: ScreeningGraphDeps):
             str(run_id), {"type": "ranking", "detail": "Ranking agent"}
         )
         prompt = build_ranker_prompt(match_summary=str(state.get("match_summary") or ""))
-        msg = await llm.ainvoke([SystemMessage(content=prompt)])
+        msg = await llm.ainvoke([HumanMessage(content=prompt)])
         summary = coerce_llm_message_content(getattr(msg, "content", None)).strip() or LLM_EMPTY_REPLY
         async with deps.session_factory() as session:
             await log_agent_step(
