@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 RANKER_INSTRUCTIONS = (
-    "Rank the candidates qualitatively based on the match summary. "
-    "Return a short ordered list with one-line justifications.\n"
+    "You are an executive talent sourcer. Rank the candidates qualitatively from BEST to WORST "
+    "based on their fit for the job as described in the match summary. "
+    "Perform a definitive 'force-ranking'—no ties. "
+    "Return a clear, numbered list. For each candidate, provide a one-line executive justification "
+    "explaining why they are in that specific position relative to others.\n"
 )
 
 

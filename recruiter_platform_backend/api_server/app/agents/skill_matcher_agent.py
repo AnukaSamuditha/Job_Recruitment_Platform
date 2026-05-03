@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.agents.deps import ScreeningGraphDeps
 from app.agents.runtime import LLM_EMPTY_REPLY, coerce_llm_message_content, log_agent_step
@@ -30,7 +30,7 @@ def create_skill_matcher_node(deps: ScreeningGraphDeps):
             cand_ids = [uuid.UUID(x) for x in state.get("candidate_ids", [])]
             fit_lines: list[str] = []
             fit_tool_calls: list[dict[str, Any]] = []
-            for cid in cand_ids[:12]:
+            for cid in cand_ids[:25]:
                 cand = await session.get(Candidate, cid)
                 if cand is None:
                     continue
@@ -58,9 +58,9 @@ def create_skill_matcher_node(deps: ScreeningGraphDeps):
             await session.flush()
 
             contexts: list[str] = []
-            for cid in cand_ids[:5]:
+            for cid in cand_ids[:10]:
                 chunks = await top_k_chunks_for_job_candidate(
-                    session, job_id=job_id, candidate_id=cid, k=6
+                    session, job_id=job_id, candidate_id=cid, k=3
                 )
                 if not chunks:
                     contexts.append(f"Candidate {cid}: (no embeddings yet)")
@@ -74,7 +74,7 @@ def create_skill_matcher_node(deps: ScreeningGraphDeps):
                 parse_notes=str(state.get("parse_notes") or ""),
                 ctx_block=ctx_block,
             )
-            msg = await llm.ainvoke([SystemMessage(content=prompt)])
+            msg = await llm.ainvoke([HumanMessage(content=prompt)])
             summary = coerce_llm_message_content(getattr(msg, "content", None)).strip() or LLM_EMPTY_REPLY
             await log_agent_step(
                 session,
