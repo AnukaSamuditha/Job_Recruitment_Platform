@@ -1,4 +1,4 @@
-"""Property-based and golden tests for CV parser agent structured output (no Ollama)."""
+"""Property-based and golden tests for CV parser agent structured output."""
 
 from __future__ import annotations
 
@@ -105,3 +105,95 @@ def test_no_null_bytes_after_finalize() -> None:
     out = finalize_cv_parser_agent(core)
     joined = "\n".join(out.alignment_summary + out.gaps_or_questions + out.risk_flags)
     assert "\x00" not in joined
+
+
+@settings(max_examples=60)
+@given(
+    align=st.lists(st.text(min_size=0, max_size=400), max_size=14),
+    gaps=st.lists(st.text(min_size=0, max_size=400), max_size=8),
+    risks=st.lists(st.text(min_size=0, max_size=400), max_size=12),
+)
+def test_finalize_property_unicode_and_mixed_coercion(
+    align: list[str],
+    gaps: list[str],
+    risks: list[str],
+) -> None:
+    """Unicode / arbitrary text: finalize stays bounded and serializable (security + UI contract)."""
+    core = CvParserAgentLlmCore(alignment_summary=align, gaps_or_questions=gaps, risk_flags=risks)
+    out = finalize_cv_parser_agent(core)
+    assert 3 <= len(out.alignment_summary) <= 6
+    assert 2 <= len(out.gaps_or_questions) <= 4
+    assert len(out.risk_flags) <= 8
+    assert out.disclaimer == CV_PARSER_AGENT_DISCLAIMER
+    for line in out.alignment_summary + out.gaps_or_questions + out.risk_flags:
+        assert len(line) <= 500
+    again = CvParserAgentRead.model_validate(out.model_dump())
+    assert again == out
+
+
+@settings(max_examples=50)
+@given(
+    align=st.lists(st.one_of(st.text(max_size=80), st.integers(min_value=-1000, max_value=1000)), max_size=10),
+    gaps=st.lists(st.one_of(st.text(max_size=60), st.booleans()), max_size=6),
+    risks=st.lists(st.one_of(st.text(max_size=40), st.floats(allow_nan=False)), max_size=8),
+)
+def test_finalize_core_coerces_non_string_items(
+    align: list[str | int],
+    gaps: list[str | bool],
+    risks: list[str | float],
+) -> None:
+    """LLM/core lists may contain non-strings; CvParserAgentLlmCore coerces via validator."""
+    core = CvParserAgentLlmCore(alignment_summary=align, gaps_or_questions=gaps, risk_flags=risks)
+    out = finalize_cv_parser_agent(core)
+    assert 3 <= len(out.alignment_summary) <= 6
+    assert 2 <= len(out.gaps_or_questions) <= 4
+    blob = out.model_dump()
+    assert CvParserAgentRead.model_validate(blob) == out
+
+
+def test_read_from_stored_ignores_extra_keys() -> None:
+    blob = {
+        "alignment_summary": ["a", "b", "c"],
+        "gaps_or_questions": ["x", "y"],
+        "risk_flags": [],
+        "disclaimer": CV_PARSER_AGENT_DISCLAIMER,
+        "error": None,
+        "unknown_legacy_key": {"nested": True},
+        "another": 42,
+    }
+    parsed = cv_parser_agent_read_from_stored(blob)
+    assert parsed is not None
+    assert parsed.model_dump() == {
+        "alignment_summary": ["a", "b", "c"],
+        "gaps_or_questions": ["x", "y"],
+        "risk_flags": [],
+        "disclaimer": CV_PARSER_AGENT_DISCLAIMER,
+        "error": None,
+    }
+
+
+def test_read_from_stored_rejects_wrong_field_shapes() -> None:
+    assert (
+        cv_parser_agent_read_from_stored(
+            {
+                "alignment_summary": ["ok"],
+                "gaps_or_questions": "must_be_list",
+                "risk_flags": [],
+                "disclaimer": CV_PARSER_AGENT_DISCLAIMER,
+                "error": None,
+            }
+        )
+        is None
+    )
+    assert (
+        cv_parser_agent_read_from_stored(
+            {
+                "alignment_summary": "must_be_list",
+                "gaps_or_questions": ["x", "y"],
+                "risk_flags": [],
+                "disclaimer": CV_PARSER_AGENT_DISCLAIMER,
+                "error": None,
+            }
+        )
+        is None
+    )
