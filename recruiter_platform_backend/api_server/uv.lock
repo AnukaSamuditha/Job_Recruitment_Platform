@@ -176,6 +176,7 @@ dev = [
     { name = "grpcio-tools" },
     { name = "hypothesis" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
 ]
 
 [package.metadata]
@@ -207,6 +208,7 @@ dev = [
     { name = "grpcio-tools", specifier = ">=1.68.0" },
     { name = "hypothesis", specifier = ">=6.0.0" },
     { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", specifier = ">=0.25.0" },
 ]
 
 [[package]]
