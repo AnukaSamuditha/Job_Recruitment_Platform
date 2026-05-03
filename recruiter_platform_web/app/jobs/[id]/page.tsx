@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import RateCandidates from "@/components/jobs/RateCandidates";
+import JobRanking from "@/components/jobs/JobRanking";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useJob } from "@/lib/hooks/useJobs";
@@ -10,7 +11,7 @@ import { useJob } from "@/lib/hooks/useJobs";
 export default function JobWorkspace() {
   const params = useParams();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id ?? "unknown";
-  const [tab, setTab] = useState<"details" | "rate">("details");
+  const [tab, setTab] = useState<"details" | "rate" | "rank">("details");
   const { data: job, isLoading } = useJob(id);
 
   const title = job?.title ?? (isLoading ? "Loading…" : "Job");
@@ -42,6 +43,15 @@ export default function JobWorkspace() {
           >
             Candidates
           </Button>
+          <Button
+            type="button"
+            variant={tab === "rank" ? "default" : "ghost"}
+            size="sm"
+            className={tab === "rank" ? "rounded-md shadow-none" : "rounded-md"}
+            onClick={() => setTab("rank")}
+          >
+            AI Ranking
+          </Button>
         </div>
       </div>
 
@@ -64,6 +74,7 @@ export default function JobWorkspace() {
       )}
 
       {tab === "rate" && <RateCandidates jobId={id} />}
+      {tab === "rank" && <JobRanking jobId={id} />}
     </div>
   );
 }

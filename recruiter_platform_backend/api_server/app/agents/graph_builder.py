@@ -29,6 +29,8 @@ def build_screening_graph(
         base_url=settings.ollama_base_url,
         model=settings.ollama_chat_model,
         temperature=0.2,
+        num_ctx=32768,
+        timeout=300,
     )
     deps = ScreeningGraphDeps(
         session_factory=session_factory,

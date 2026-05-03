@@ -321,3 +321,56 @@ async def upload_candidate_cv(
         "cv_storage_key": cand.cv_storage_key,
         "screening_run_id": str(run.id),
     }
+
+
+@router.post("/{job_id}/rank-all", status_code=201)
+async def trigger_job_ranking(
+    job_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_db_session),
+    broadcaster: ScreeningBroadcaster = Depends(get_broadcaster),
+    graph: object = Depends(get_screening_graph),
+) -> dict[str, str]:
+    """Fetch all candidates for this job and start a new joint screening run (ranking comparison)."""
+    job = await JobService.get_by_id(session, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    candidates = await CandidateService.list_for_job(session, job_id)
+    if not candidates:
+        raise HTTPException(status_code=400, detail="No candidates to rank")
+
+    cids = [c.id for c in candidates]
+
+    run = await schedule_screening_run(
+        background_tasks=background_tasks,
+        session=session,
+        job_id=job_id,
+        candidate_ids=cids,
+        graph=graph,
+        broadcaster=broadcaster,
+    )
+    return {
+        "screening_run_id": str(run.id),
+    }
+
+
+@router.get("/{job_id}/screening", response_model=CandidateJobScreeningRead)
+async def get_job_screening(
+    job_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db_session),
+) -> CandidateJobScreeningRead:
+    """Return text blobs from the most recent screening run for this job (e.g. joint ranking)."""
+    run = await latest_screening_run_for_job(session, job_id=job_id)
+    snippets: dict[str, str] = {}
+    if run is not None:
+        snippets = await agent_snippets_for_run(session, run_id=run.id)
+
+    return CandidateJobScreeningRead(
+        screening_run_id=run.id if run else None,
+        status=run.status if run else None,
+        created_at=run.created_at if run else None,
+        skill_match=snippets.get("skill_match"),
+        ranking=snippets.get("ranking"),
+        interview=snippets.get("interview"),
+    )
