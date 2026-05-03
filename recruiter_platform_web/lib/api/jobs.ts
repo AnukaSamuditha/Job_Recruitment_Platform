@@ -251,24 +251,6 @@ export async function uploadCandidateCvWithProgress(
   const fd = new FormData();
   fd.append("file", file);
   fd.append("display_name", displayName);
-
-  // #region agent log
-  const _dbg = (message: string, data: Record<string, unknown>, hypothesisId: string) => {
-    fetch("http://127.0.0.1:7925/ingest/a4a8d503-3acb-41c9-ad31-b49e964e236e", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "2354bc" },
-      body: JSON.stringify({
-        sessionId: "2354bc",
-        hypothesisId,
-        location: "jobs.ts:uploadCandidateCvWithProgress",
-        message,
-        data,
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  };
-  // #endregion
-
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
@@ -279,11 +261,6 @@ export async function uploadCandidateCvWithProgress(
       if (ev.lengthComputable && ev.total > 0) {
         const percent = Math.min(100, Math.round((ev.loaded / ev.total) * 100));
         onProgress({ percent, loaded: ev.loaded, total: ev.total });
-        // #region agent log
-        if (percent === 100 || percent % 25 === 0) {
-          _dbg("xhr_upload_progress", { percent, loaded: ev.loaded, total: ev.total }, "H2");
-        }
-        // #endregion
       } else {
         onProgress({ percent: 0, loaded: ev.loaded, total: null });
       }
@@ -291,11 +268,13 @@ export async function uploadCandidateCvWithProgress(
 
     xhr.onload = () => {
       if (xhr.status < 200 || xhr.status >= 300) {
-        const text =
-          typeof xhr.responseText === "string" && xhr.responseText
-            ? xhr.responseText
-            : xhr.statusText;
-        reject(new Error(text || `HTTP ${xhr.status}`));
+        let errorMsg = xhr.statusText || `HTTP ${xhr.status}`;
+        if (xhr.response && typeof xhr.response === "object") {
+          errorMsg = xhr.response.detail || xhr.response.message || JSON.stringify(xhr.response);
+        } else if (xhr.responseType === "" || xhr.responseType === "text") {
+          errorMsg = xhr.responseText || errorMsg;
+        }
+        reject(new Error(errorMsg));
         return;
       }
       const body = xhr.response as UploadCvResponse;
@@ -304,9 +283,6 @@ export async function uploadCandidateCvWithProgress(
         return;
       }
       onProgress?.({ percent: 100, loaded: file.size, total: file.size });
-      // #region agent log
-      _dbg("xhr_upload_complete", { status: xhr.status, candidate_id: body.candidate_id }, "H2");
-      // #endregion
       resolve(body);
     };
 
